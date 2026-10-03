@@ -12,6 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `pnpm prebuild` - Generate native iOS and Android directories
 - `pnpm typecheck` - Run TypeScript type checking after all changes
 
+**Important**: Always use **production/release** builds for testing on physical devices, not dev/debug builds. The user's phone has the production version installed. Use dev builds only for emulator testing with hot reload.
+
 ### macOS Desktop (Tauri)
 - `pnpm tauri:dev` - Run macOS desktop app with hot reload
 - `pnpm tauri:build:dev` - Build development variant

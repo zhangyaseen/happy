@@ -1,6 +1,6 @@
 # 详细设计文档: 模型选择器第三方模型支持（方案 B）
 
-> **状态**: 待实施
+> **状态**: ✅ 已实施并验证
 > **日期**: 2026-10-03
 > **关联**: [SUMMARY_DESIGN.md](./SUMMARY_DESIGN.md) · [TECHNICAL_ANALYSIS.md](./TECHNICAL_ANALYSIS.md) · [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)
 
@@ -12,18 +12,24 @@
 
 **根因**：Claude Code 的 `init` 消息只报告当前模型名（`"model": "qwen3.7-plus"`），不提供 `config_options_update` 或 `models_update` 事件，导致 `metadata.models` 始终为空，App 必定走到硬编码 fallback。
 
-**方案**：在 daemon 端（`runAcp.ts`）从 settings.json 读取用户配置的模型列表，注入到 `metadata.models`。基于第一性原理，这是正确的设计——daemon 最接近配置源，职责分离清晰。
+**方案**：在 daemon 端从 settings.json 读取用户配置的模型列表，注入到 `metadata.models`。基于第一性原理，这是正确的设计——daemon 最接近配置源，职责分离清晰。
+
+**实际实现**：注入点在 `runClaude.ts`（Claude 模式）和 `runAcp.ts`（ACP 模式），使用共享函数 `extractModelsFromSettings()`。三层保护确保模型设置不被覆盖。详见 [Section 8-9](#8-改动量估算初始设计-vs-实际)。
 
 ---
 
 ## 1. 架构总览
 
-### 1.1 修改范围
+### 1.1 实际修改范围（6 个文件）
 
 ```
-修改 2 个文件:
-├── packages/happy-cli/src/agent/acp/runAcp.ts          ← daemon 注入逻辑
-└── packages/happy-app/sources/components/modelModeOptions.ts  ← app 端兼容修复
+修改 6 个文件:
+├── packages/happy-cli/src/claude/utils/claudeSettings.ts  ← 共享函数
+├── packages/happy-cli/src/claude/runClaude.ts             ← Claude 模式注入
+├── packages/happy-cli/src/agent/acp/runAcp.ts             ← ACP 模式注入
+├── packages/happy-app/sources/components/modelModeOptions.ts  ← app 端兼容
+├── packages/happy-app/sources/app/(app)/new/index.tsx     ← 模型选择器 fallback
+└── packages/happy-app/sources/components/HomeDock.tsx     ← 模型选择器 fallback
 ```
 
 ### 1.2 数据流（修改后）

@@ -6,9 +6,10 @@
 
 ## 当前状态
 
-- **状态**: 已分析，待实现
+- **状态**: ✅ 已完成并验证
 - **优先级**: 高
 - **创建日期**: 2026-10-03
+- **完成日期**: 2026-10-03
 
 ## 文档索引
 
@@ -81,3 +82,33 @@ settings.json 支持通过多个环境变量配置不同的模型层级：
 - ✅ 方案 B 不仅逻辑可行，在真实场景中也完全可行
 
 **验证脚本**: `/tmp/verify-scheme-b.mjs` 和 `/tmp/verify-scheme-b-multi.mjs`
+
+---
+
+## 实施完成总结（2026-10-03）
+
+### 实际修改文件（6 个）
+
+| 文件 | 改动 | 说明 |
+|------|------|------|
+| `claudeSettings.ts` | +36 行 | 新增 `extractModelsFromSettings()` 共享函数 |
+| `runClaude.ts` | +30 行 | 三层保护：初始化覆盖 + metadata 注入 + 消息级保护 |
+| `runAcp.ts` | +2/-35 行 | 改用共享函数，移除重复代码 |
+| `modelModeOptions.ts` | 1 行 | 防御性修复 `claude` flavor |
+| `new/index.tsx` | 8 行 | Claude agent 显示 "Default model" |
+| `HomeDock.tsx` | 8 行 | 同上 |
+
+### 测试验证
+
+| 场景 | 配置 | 结果 |
+|------|------|------|
+| 单模型 | 所有层级 = qwen3.7-plus | ✅ 显示 "Default model" |
+| 多模型 | qwen3.7-plus + kimi-k2.5 + glm-5 | ✅ 显示 3 个模型 |
+| 会话功能 | 创建会话并发送消息 | ✅ 正常工作 |
+
+### 关键教训
+
+详见 [DETAILED_DESIGN.md Section 9](./DETAILED_DESIGN.md#9-实施复盘2026-10-03)：
+1. 必须追踪完整代码路径（从入口到终点）
+2. 验证必须端到端，不只是单元测试
+3. 修改状态变量时，检查所有写入点
