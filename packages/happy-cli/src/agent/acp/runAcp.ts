@@ -29,6 +29,7 @@ import {
   mergeAcpSessionConfigIntoMetadata,
 } from './sessionConfigMetadata';
 import type { SessionConfigOption, SessionModeState, SessionModelState } from '@agentclientprotocol/sdk';
+import { extractModelsFromSettings } from '@/claude/utils/claudeSettings';
 
 const TURN_TIMEOUT_MS = 5 * 60 * 1000;
 const ACP_EVENT_PREVIEW_CHARS = 240;
@@ -892,6 +893,22 @@ export async function runAcp(opts: {
   try {
     const started = await backend.startSession();
     acpSessionId = started.sessionId;
+
+    // Inject models from settings.json if ACP didn't provide any
+    session.updateMetadata((meta) => {
+        if (meta.models && meta.models.length > 0) return meta;
+        const { models: settingsModels, currentModel } = extractModelsFromSettings();
+        if (settingsModels.length === 0) return meta;
+        logger.debug(
+            `[runAcp] Injected ${settingsModels.length} model(s) from settings.json: ${settingsModels.join(', ')}`,
+        );
+        return {
+            ...meta,
+            models: settingsModels.map((model) => ({ code: model, value: model })),
+            ...(currentModel ? { currentModelCode: currentModel } : {}),
+        };
+    });
+
     if (verbose) {
       if (!sawSlashCommands) {
         logAcp('muted', `Outgoing slash commands from ${opts.agentName}: not reported yet`);

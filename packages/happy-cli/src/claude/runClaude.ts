@@ -18,6 +18,7 @@ import { initialMachineMetadata } from '@/daemon/run';
 import { startHappyServer } from '@/claude/utils/startHappyServer';
 import { startHookServer } from '@/claude/utils/startHookServer';
 import { generateHookSettingsFile, cleanupHookSettingsFile } from '@/claude/utils/generateHookSettings';
+import { extractModelsFromSettings } from '@/claude/utils/claudeSettings';
 import { registerKillSessionHandler } from './registerKillSessionHandler';
 import { projectPath } from '../projectPath';
 import { resolve } from 'node:path';
@@ -283,6 +284,21 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     // Create realtime session
     const session = api.sessionSyncClient(response);
 
+    // Inject models from settings.json into metadata for the app model picker
+    {
+        const { models: settingsModels, currentModel: settingsCurrentModel } = extractModelsFromSettings();
+        if (settingsModels.length > 0) {
+            session.updateMetadata((meta) => ({
+                ...meta,
+                models: settingsModels.map((model) => ({ code: model, value: model })),
+                ...(settingsCurrentModel ? { currentModelCode: settingsCurrentModel } : {}),
+            }));
+            logger.debug(
+                `[CLAUDE] Injected ${settingsModels.length} model(s) from settings.json: ${settingsModels.join(', ')}`,
+            );
+        }
+    }
+
     // On reconnect, un-archive the session and skip replaying old messages.
     if (reconnectSessionId) {
         session.suppressNextArchiveSignal();
@@ -535,6 +551,18 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     let currentPermissionMode: PermissionMode | undefined = initialPermissionMode;
     // Undefined means "no override" and lets Claude resolve the model itself —
     // same contract as the mid-session reset below (meta.model null → undefined).
+    // Override model from settings.json if configured — the app sends hardcoded
+    // Anthropic model names (e.g., "claude-fable-5-1") which may not be recognized
+    // by third-party API endpoints configured in settings.json.
+    let settingsJsonModel: string | null = null;
+    {
+        const { currentModel: settingsModel } = extractModelsFromSettings();
+        if (settingsModel) {
+            settingsJsonModel = settingsModel;
+            logger.debug(`[CLAUDE] Overriding model: app sent "${options.model ?? 'default'}", using settings.json "${settingsModel}"`);
+            options.model = settingsModel;
+        }
+    }
     let currentModel: string | undefined = options.model;
     let currentFallbackModel: string | undefined = undefined; // Track current fallback model
     let currentCustomSystemPrompt: string | undefined = undefined; // Track current custom system prompt
@@ -690,9 +718,15 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
         }
 
         // Resolve model - use message.meta.model if provided, otherwise use current model
+        // When settings.json has a configured model, ignore app's hardcoded model names
         let messageModel = currentModel;
         if (message.meta?.hasOwnProperty('model')) {
-            messageModel = message.meta.model || undefined; // null becomes undefined
+            if (settingsJsonModel && message.meta.model && message.meta.model !== settingsJsonModel) {
+                logger.debug(`[loop] Ignoring app model "${message.meta.model}", using settings.json "${settingsJsonModel}"`);
+                messageModel = settingsJsonModel;
+            } else {
+                messageModel = message.meta.model || undefined; // null becomes undefined
+            }
             currentModel = messageModel;
             logger.debug(`[loop] Model updated from user message: ${messageModel || 'reset to default'}`);
         } else {

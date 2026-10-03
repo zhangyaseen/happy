@@ -1109,10 +1109,14 @@ function NewSessionScreen() {
         }
         : resolveAgentDefaultConfig(agentDefaultOverrides, selectedAgent, happyCliVersion), [agentDefaultOverrides, happyCliVersion, selectedAgent, rigCreation]);
     const modelModes = React.useMemo<ModelMode[]>(
-        () => rigCreation?.models ?? includeConfiguredModel(
-            selectedAgent,
-            getHardcodedModelModes(selectedAgent, t),
-            effectiveAgentDefaults.modelMode,
+        () => rigCreation?.models ?? (
+            selectedAgent === 'claude'
+                ? [{ key: 'default', name: 'Default model' }]
+                : includeConfiguredModel(
+                    selectedAgent,
+                    getHardcodedModelModes(selectedAgent, t),
+                    effectiveAgentDefaults.modelMode,
+                )
         ),
         [selectedAgent, effectiveAgentDefaults.modelMode, rigCreation],
     );

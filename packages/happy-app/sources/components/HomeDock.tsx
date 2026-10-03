@@ -955,10 +955,14 @@ export const HomeDock = React.memo(({
         [agentType, happyCliVersion, rigCreation],
     );
     const modelOptions = React.useMemo(
-        () => rigCreation?.models ?? includeConfiguredModel(
-            agentType,
-            getHardcodedModelModes(agentType, t),
-            defaults.modelMode,
+        () => rigCreation?.models ?? (
+            agentType === 'claude'
+                ? [{ key: 'default', name: 'Default model' }]
+                : includeConfiguredModel(
+                    agentType,
+                    getHardcodedModelModes(agentType, t),
+                    defaults.modelMode,
+                )
         ),
         [agentType, defaults.modelMode, rigCreation],
     );

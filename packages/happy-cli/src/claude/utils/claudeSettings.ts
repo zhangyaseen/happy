@@ -67,3 +67,45 @@ export function shouldIncludeCoAuthoredBy(): boolean {
   
   return settings.includeCoAuthoredBy;
 }
+
+/**
+ * Environment variables that can configure model tiers in Claude's settings.json.
+ * Order: default first, then specific tiers, then subagent.
+ */
+const MODEL_ENV_VARS = [
+    'ANTHROPIC_MODEL',
+    'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+    'ANTHROPIC_DEFAULT_SONNET_MODEL',
+    'ANTHROPIC_DEFAULT_OPUS_MODEL',
+    'CLAUDE_CODE_SUBAGENT_MODEL',
+] as const;
+
+/**
+ * Extract model configuration from Claude's settings.json.
+ *
+ * Reads the `env` field and collects all model-related environment
+ * variables (ANTHROPIC_MODEL, ANTHROPIC_DEFAULT_HAIKU_MODEL, etc.),
+ * deduplicates them, and returns the unique list.
+ *
+ * @returns Unique model names and the current model (ANTHROPIC_MODEL or first).
+ */
+export function extractModelsFromSettings(): { models: string[]; currentModel: string | null } {
+    const settings = readClaudeSettings();
+    if (!settings?.env || typeof settings.env !== 'object') {
+        return { models: [], currentModel: null };
+    }
+    const env = settings.env as Record<string, unknown>;
+    const configuredModels: string[] = [];
+    for (const key of MODEL_ENV_VARS) {
+        const value = env[key];
+        if (typeof value === 'string' && value.length > 0) {
+            configuredModels.push(value);
+        }
+    }
+    const uniqueModels = [...new Set(configuredModels)];
+    const currentModel =
+        typeof env.ANTHROPIC_MODEL === 'string' && env.ANTHROPIC_MODEL.length > 0
+            ? (env.ANTHROPIC_MODEL as string)
+            : (uniqueModels[0] ?? null);
+    return { models: uniqueModels, currentModel };
+}

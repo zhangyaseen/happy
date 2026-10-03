@@ -191,7 +191,7 @@ export function includeConfiguredModel(
     configuredModelKey: string | null | undefined,
 ): ModelMode[] {
     if (
-        (flavor !== 'codex' && flavor !== 'agy')
+        (flavor !== 'codex' && flavor !== 'agy' && flavor !== 'claude')
         || !configuredModelKey
         || configuredModelKey === 'default'
         || models.some((model) => model.key === configuredModelKey)
